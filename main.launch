@@ -1,0 +1,176 @@
+<launch>
+
+    <arg name="kine_cam_serial" default="14490219" />
+    <arg name="ca_cam_serial" default="19194723" />
+    <arg name="calibrated" default="0" />
+
+    <!-- ========================================================== -->
+    <!-- Launch the cameras.                                        -->
+    <!-- ========================================================== -->
+
+    <group ns="kine_camera">
+      <node pkg="nodelet" 
+            type="nodelet" 
+            name="camera_nodelet_manager"    
+            args="manager" />
+      <node pkg="nodelet" 
+            type="nodelet" 
+            name="camera_nodelet"
+            args="load pointgrey_camera_driver/PointGreyCameraNodelet camera_nodelet_manager" >
+            <param name="frame_id" value="camera" />
+            <param name="serial" value="$(arg kine_cam_serial)" />
+            <param name="video_mode" value="format7_mode0" />
+	    <param name="frame_rate" value="30" />
+            <param name="auto_exposure" value="false" />
+            <param name="auto_shutter" value="false" />
+            <param name="auto_gain" value="false" />
+            <param name="gain" value="1.0" />
+	    <param name="shutter_speed" value="0.030" />
+      	    <param name="brightness" value="0.0" />
+	    <param name="enable_trigger" value="false" />
+	    <param name="format7_roi_width" value="384" />
+	    <param name="format7_roi_height" value="384" />
+	    <param name="format7_x_offset" value="100" />
+	    <param name="format7_y_offset" value="100" />
+            <!-- Use the camera_calibration package to create this file -->
+            <param name="camera_info_url" if="$(arg calibrated)"
+             value="file://$(env HOME)/.ros/camera_info/$(arg camera_serial).yaml" />
+      </node>
+
+      <node pkg="nodelet" 
+          type="nodelet" 
+          name="image_proc_debayer"
+          args="load image_proc/debayer camera_nodelet_manager" />
+    </group>
+
+    <group ns="ca_camera">
+      <node pkg="nodelet" 
+	    type="nodelet" 
+	    name="camera_nodelet_manager" 
+	    args="manager" 
+	    cwd="node" 
+	    output="screen"/>
+    <node pkg="nodelet" 
+	    type="nodelet" 
+	    name="spinnaker_camera_nodelet"
+            args="load spinnaker_camera_driver/SpinnakerCameraNodelet camera_nodelet_manager" >
+            <param name="frame_id" 			value="camera" />
+            <param name="serial" 			value="$(arg ca_cam_serial)" />
+	    <!-- param name="acquisition_frame_rate" 	value="120" /> -->
+	    <param name="acquisition_frame_rate_enable" value="False" />
+	    <param name="auto_exposure_time_upper_limit" value="20000" />
+	    <param name="exposure_mode" 		value="TriggerWidth" />
+	    <param name="exposure_auto" 		value="Off" />
+	    <!-- param name="exposure_time" 		value="1000" /> -->
+	    <param name="gain_selector" 		value="All" />
+	    <param name="auto_gain"     		value="Off" />
+	    <param name="gain"	        		value="30" />
+	    <param name="brightness"    		value="0.0" />
+	    <param name="sharpening_enable" 		value="False" />
+	    <param name="auto_sharpness" 		value ="False" />
+	    <!-- param name="sharpness"     		value="0" /> -->
+	    <!-- param name="sharpening_threshold" 	value="0" /> -->
+	    <param name="saturation_enable" 		value="False" />
+	    <param name="saturation" 			value="100.0" />
+	    <param name="gamma_enable"  		value="True" />
+	    <param name="gamma" 			value="1.0" />
+	    <!-- param name="image_format_roi_width" 	value="360" / -->
+	    <!-- param name="image_format_roi_height" 	value="270" / -->
+	    <param name="image_format_roi_width" 	value="200" />
+	    <param name="image_format_roi_height" 	value="200" />
+	    <param name="image_format_x_offset" 	value="0" />
+	    <param name="image_format_y_offset"		value="0" />
+	    <param name="image_format_x_binning" 	value="2" />
+	    <param name="image_format_y_binning" 	value="2" />
+	    <param name="image_format_x_decimation" 	value="1" />
+	    <param name="image_format_y_decimation" 	value="1" />
+	    <param name="image_format_color_coding" 	value="Mono8" />
+	    <param name="enable_trigger" 		value="On" />
+	    <param name="trigger_activation_mode" 	value="RisingEdge" />
+	    <param name="trigger_source" 		value="Line0" />
+	    <param name="trigger_overlap_mode" 		value="ReadOut" />
+	    <!-- Use the camera_calibration package to create this file -->
+ 	    <param name="camera_info_url" if="$(arg calibrated)"
+             value="file://$(env HOME)/.ros/camera_info/$(arg camera_serial).yaml" />
+    </node>
+
+    <node pkg="nodelet" 
+	  type="nodelet" 
+	  name="image_proc_debayer"
+          args="load image_proc/debayer camera_nodelet_manager">
+    </node>
+  </group>
+
+  <!-- ========================================================== -->
+  <!-- Launch rosserial Teensy.                                   -->
+  <!-- ========================================================== -->
+
+  <node name="teensy"	pkg="rosserial_python" type="serial_node.py" >
+	<param name="port" value="/dev/ttyACM0" />
+	<param name="baud" value="115200" />
+  </node>
+
+  <!-- ========================================================== -->
+  <!-- Launch rosserial Teensy 2.                                   -->
+  <!-- ========================================================== -->
+
+  <node name="teensy2"	pkg="rosserial_python" type="serial_node.py" >
+	<param name="port" value="/dev/ttyACM2" />
+	<param name="baud" value="115200" />
+  </node>
+
+  <!-- ========================================================== -->
+  <!-- Launch the frame counter node.                             -->
+  <!-- ========================================================== -->
+  <node name="frame_counter" pkg="muscle_imager" type="frame_counter.py" />
+
+  <!-- ========================================================== -->
+  <!-- Launch the phidgets daq node.                              -->
+  <!-- ========================================================== -->
+
+  <!-- param name="/phidgets_daq/update_rate_ms" value="10" type="int" -->
+  <!-- param name="/phidgets_daq/ratiometric" value="False" type="bool" -->
+  <!-- param name="/phidgets_daq/interpreter_path" value="/home/flyami2/catkin_ws/src/phidgets_daq/demo/phidgets_daq_interpreter_functions.py" -->
+
+  <!-- node name="data_interpreter" pkg="phidgets_daq" type="daq_interpreter.py" output="screen" -->
+  <!-- node name="data_acquisition" pkg="phidgets_daq" type="daq.py" output="screen" -->
+
+  <!-- ========================================================== -->
+  <!-- Launch ledpanels node.                                     -->
+  <!-- ========================================================== -->
+
+  <node name="ledpanels" pkg="ledpanels" type="panel_node.py" required="true" />
+
+  <!-- ========================================================== -->
+  <!-- Launch experiment node.                                    -->
+  <!-- ========================================================== -->
+
+  <node name="exp_script" pkg="muscle_imager" type="experimental_node.py" />
+
+  <!-- ========================================================== -->
+  <!-- Launch Kinefly.                                            -->
+  <!-- ========================================================== -->
+
+  <include file="$(find Kinefly)/launch/flyami2/params_kinefly.launch"               ns="kinefly" />
+  <include file="$(find Kinefly)/launch/flyami2/params_phidgetsanalog.launch"        ns="kinefly" />
+  <include file="$(find Kinefly)/launch/flyami2/params_ledpanels.launch"		ns="kinefly" />
+
+  <node name="kinefly"                  pkg="Kinefly"   type="kinefly.py"            required="true" />
+  <node name="flystate2phidgetsanalog"  pkg="Kinefly"   type="flystate2phidgetsanalog.py" ns="kinefly" />
+  <node name="flystate2ledpanels"	pkg="Kinefly"	type="flystate2ledpanels.py" ns="kinefly" />
+
+  <!-- ========================================================== -->
+  <!-- Launch all-in-one-viewer                                   -->
+  <!-- ========================================================== -->
+
+  <param name="/muscles/image_topic" value="/ca_camera/image_raw" type ="str" />
+  <node name="muscles" pkg="muscle_imager" type="all_in_one_viewer.py" />
+
+  <!-- ========================================================== -->
+  <!-- Launch the muscle activity trigger                         -->
+  <!-- ========================================================== -->
+  <!-- <node name="muscle_trigger" pkg="muscle_imager" type="muscle_trigger.py" >
+	<param name="trigger_file" value="/home/flyami2/exp_launch_scripts/single_muscle_trigger/b1/trigger_file.hdf5" /> -->
+  <!-- </node> -->
+
+</launch>
